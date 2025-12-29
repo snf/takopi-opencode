@@ -1,5 +1,8 @@
 # takopi
 
+> **Note**: This is a fork of [takopi](https://github.com/banteg/takopi) by [banteg](https://github.com/banteg).
+> While the original project targets Claude Code, this fork is adapted to work with [OpenCode](https://opencode.ai).
+
 🐙 *A little helper from Happy Planet, here to make your OpenCode sessions happier-pi!*
 
 A Telegram bot that bridges messages to [OpenCode](https://opencode.ai) sessions using non-interactive `opencode run --format json`.
