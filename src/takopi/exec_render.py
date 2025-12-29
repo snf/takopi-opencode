@@ -28,13 +28,7 @@ def render_markdown(md: str) -> tuple[str, list[dict[str, Any]]]:
 
     text = re.sub(r"(?m)^(\s*)•", r"\1-", rendered.text)
 
-    # FIX: Telegram requires MessageEntity.language (if present) to be a String.
-    entities: list[dict[str, Any]] = []
-    for e in rendered.entities:
-        d = dict(e)
-        if "language" in d and not isinstance(d["language"], str):
-            d.pop("language", None)
-        entities.append(d)
+    entities = [dict(e) for e in rendered.entities]
     return text, entities
 
 

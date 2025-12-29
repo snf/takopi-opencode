@@ -404,15 +404,15 @@ wheels = [
 
 [[package]]
 name = "sulguk"
-version = "0.11.0"
+version = "0.11.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "html5lib" },
     { name = "lxml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/56/dc50d7312089918199df087a35c8361b4e64bc1a21bcbeadc6d158b49103/sulguk-0.11.0.tar.gz", hash = "sha256:fb3fe43b914af95323f11facab120ed6d58b3fa3921feff514c8e99e1ae52668", size = 29679, upload-time = "2025-11-24T22:19:31.275Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c1/41/6a67c883104945ea7c5712270bce84402efc8668c1136e37ff3d5ec62322/sulguk-0.11.1.tar.gz", hash = "sha256:2d87ac482968eaf3fe662bcff64e1f94ed84fc1edb05a872b7e4343d36e486fe", size = 29906, upload-time = "2025-12-29T16:54:05.486Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d1/2f/bf2045bbbcae92168858e03233a242cceb55f24c89e82a96a9c06c9463a9/sulguk-0.11.0-py3-none-any.whl", hash = "sha256:89a4c10bd2a80406e0ae15aaa46f9682088f18bd70dd2e15a455c09d2dd4462e", size = 31391, upload-time = "2025-11-24T22:19:29.488Z" },
+    { url = "https://files.pythonhosted.org/packages/1a/75/d80c2127940bc9ba8e130ff46b0e311286764a1d3a2ea28dddeb5976bf5a/sulguk-0.11.1-py3-none-any.whl", hash = "sha256:6db842d7f5f184c0f9deb4fc53db4e6b28a891411bdbd302bee98c407d57b851", size = 31415, upload-time = "2025-12-29T16:54:02.434Z" },
 ]
 
 [[package]]
@@ -440,7 +440,7 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "markdown-it-py" },
     { name = "rich", specifier = ">=14.2.0" },
-    { name = "sulguk", specifier = ">=0.11.0" },
+    { name = "sulguk", specifier = ">=0.11.1" },
     { name = "typer", specifier = ">=0.21.0" },
 ]
 
