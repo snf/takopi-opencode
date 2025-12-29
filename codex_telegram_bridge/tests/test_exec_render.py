@@ -32,10 +32,10 @@ def test_render_event_cli_sample_stream() -> None:
     assert out == [
         "thread started",
         "turn started",
-        "0 **Searching for README files**",
-        "1 ▸ `bash -lc ls`",
-        "1 ✓ `bash -lc ls`",
-        "2 **Checking repository root for README**",
+        "0. **Searching for README files**",
+        "1. ▸ `bash -lc ls`",
+        "1. ✓ `bash -lc ls`",
+        "2. **Checking repository root for README**",
         "assistant:",
         "  Yep — there’s a `README.md` in the repository root.",
         "turn completed",
@@ -54,8 +54,8 @@ def test_render_event_cli_real_run_fixture() -> None:
 
     assert out[0] == "thread started"
     assert "turn started" in out
-    assert any(line.startswith("0 ▸ `") for line in out)
-    assert any(line.startswith("0 ✓ `") for line in out)
+    assert any(line.startswith("0. ▸ `") for line in out)
+    assert any(line.startswith("0. ✓ `") for line in out)
     assert "assistant:" in out
     assert any("exec-bridge" in line for line in out)
     assert out[-1] == "turn completed"
@@ -68,7 +68,7 @@ def test_progress_renderer_renders_progress_and_final() -> None:
 
     progress = r.render_progress(3.0)
     assert progress.startswith("working · 3s · item 3")
-    assert "1 ✓ `bash -lc ls`" in progress
+    assert "1. ✓ `bash -lc ls`" in progress
 
     final = r.render_final(3.0, "answer", status="done")
     assert final.startswith("done · 3s · item 3")
@@ -97,6 +97,6 @@ def test_progress_renderer_clamps_actions_and_ignores_unknown() -> None:
         assert r.note_event(evt) is True
 
     assert len(r.recent_actions) == 3
-    assert r.recent_actions[0].startswith("3 ")
-    assert r.recent_actions[-1].startswith("5 ")
+    assert r.recent_actions[0].startswith("3. ")
+    assert r.recent_actions[-1].startswith("5. ")
     assert r.note_event({"type": "mystery"}) is False

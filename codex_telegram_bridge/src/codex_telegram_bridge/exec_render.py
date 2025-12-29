@@ -91,7 +91,7 @@ def format_event(
             item = event["item"]
             item_num = extract_numeric_id(item["id"], last_item)
             last_item = item_num if item_num is not None else last_item
-            prefix = f"{item_num} "
+            prefix = f"{item_num}. "
 
             match (item["type"], etype):
                 case ("agent_message", "item.completed"):
