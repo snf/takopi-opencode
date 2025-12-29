@@ -3,8 +3,8 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
-LOCAL_CONFIG_NAME = Path(".codex") / "takopi.toml"
-HOME_CONFIG_PATH = Path.home() / ".codex" / "takopi.toml"
+LOCAL_CONFIG_NAME = Path(".takopi") / "takopi.toml"
+HOME_CONFIG_PATH = Path.home() / ".config" / "takopi" / "config.toml"
 
 
 class ConfigError(RuntimeError):

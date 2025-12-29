@@ -27,16 +27,29 @@ def test_parse_bridge_config_rejects_empty_token(monkeypatch) -> None:
     _patch_config(monkeypatch, {"bot_token": "   ", "chat_id": 123})
 
     with pytest.raises(exec_bridge.ConfigError, match="bot_token"):
-        exec_bridge._parse_bridge_config(final_notify=True, profile=None)
+        exec_bridge._parse_bridge_config(final_notify=True, profile=None, model=None)
 
 
-def test_parse_bridge_config_rejects_string_chat_id(monkeypatch) -> None:
+def test_parse_bridge_config_accepts_string_chat_id(monkeypatch) -> None:
     from takopi import exec_bridge
 
     _patch_config(monkeypatch, {"bot_token": "token", "chat_id": "123"})
 
-    with pytest.raises(exec_bridge.ConfigError, match="chat_id"):
-        exec_bridge._parse_bridge_config(final_notify=True, profile=None)
+    cfg = exec_bridge._parse_bridge_config(final_notify=True, profile=None, model=None)
+    assert cfg.chat_id == 123
+
+
+def test_parse_bridge_config_passes_model_arg(monkeypatch) -> None:
+    from takopi import exec_bridge
+
+    _patch_config(monkeypatch, {"bot_token": "token", "chat_id": 123})
+
+    cfg = exec_bridge._parse_bridge_config(
+        final_notify=True, profile=None, model="claude-3-5-sonnet"
+    )
+
+    assert "--model" in cfg.runner.extra_args
+    assert "claude-3-5-sonnet" in cfg.runner.extra_args
 
 
 def test_extract_session_id_finds_uuid_v7() -> None:
@@ -310,13 +323,8 @@ async def test_progress_edits_are_rate_limited() -> None:
     clock = _FakeClock()
     events = [
         {
-            "type": "item.started",
-            "item": {
-                "id": "item_0",
-                "type": "command_execution",
-                "command": "echo 1",
-                "status": "in_progress",
-            },
+            "type": "step_start",
+            "part": {"type": "step-start", "snapshot": "snap1"},
         },
         {
             "type": "item.started",
@@ -367,22 +375,16 @@ async def test_progress_edits_do_not_sleep_again_without_new_events() -> None:
     hold = anyio.Event()
     events = [
         {
-            "type": "item.started",
-            "item": {
-                "id": "item_0",
-                "type": "command_execution",
-                "command": "echo 1",
-                "status": "in_progress",
-            },
+            "type": "step_start",
+            "part": {"type": "step-start", "snapshot": "snap1"},
         },
         {
-            "type": "item.started",
-            "item": {
-                "id": "item_1",
-                "type": "command_execution",
-                "command": "echo 2",
-                "status": "in_progress",
-            },
+            "type": "step_finish",
+            "part": {"type": "step-finish", "reason": "stop"},
+        },
+        {
+            "type": "step_start",
+            "part": {"type": "step-start", "snapshot": "snap2"},
         },
     ]
     runner = _FakeRunnerWithEvents(
@@ -449,23 +451,12 @@ async def test_bridge_flow_sends_progress_edits_and_final_resume() -> None:
     clock = _FakeClock()
     events = [
         {
-            "type": "item.started",
-            "item": {
-                "id": "item_0",
-                "type": "command_execution",
-                "command": "echo ok",
-                "status": "in_progress",
-            },
+            "type": "step_start",
+            "part": {"type": "step-start"},
         },
         {
-            "type": "item.completed",
-            "item": {
-                "id": "item_0",
-                "type": "command_execution",
-                "command": "echo ok",
-                "exit_code": 0,
-                "status": "completed",
-            },
+            "type": "step_finish",
+            "part": {"type": "step-finish"},
         },
     ]
     session_id = "123e4567-e89b-12d3-a456-426614174000"

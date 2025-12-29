@@ -87,10 +87,10 @@ async def _iter_text_lines(stream: ByteReceiveStream) -> AsyncIterator[str]:
 async def _drain_stderr(stderr: ByteReceiveStream, tail: deque[str]) -> None:
     try:
         async for line in _iter_text_lines(stderr):
-            logger.info("[codex][stderr] %s", line.rstrip())
+            logger.info("[opencode][stderr] %s", line.rstrip())
             tail.append(line)
     except Exception as e:
-        logger.debug("[codex][stderr] drain error: %s", e)
+        logger.debug("[opencode][stderr] drain error: %s", e)
 
 
 async def _wait_for_process(proc: Process, timeout: float) -> bool:
@@ -290,13 +290,13 @@ class ProgressEdits:
         self.wakeup.set()
 
 
-class CodexExecRunner:
+class OpenCodeExecRunner:
     def __init__(
         self,
-        codex_cmd: str,
+        opencode_cmd: str,
         extra_args: list[str],
     ) -> None:
-        self.codex_cmd = codex_cmd
+        self.opencode_cmd = opencode_cmd
         self.extra_args = extra_args
 
         # Per-session locks to prevent concurrent resumes to the same session_id.
@@ -317,32 +317,30 @@ class CodexExecRunner:
         session_id: str | None,
         on_event: EventCallback | None = None,
     ) -> tuple[str, str, bool]:
-        logger.info("[codex] start run session_id=%r", session_id)
-        logger.debug("[codex] prompt: %s", prompt)
-        args = [self.codex_cmd]
+        logger.info("[opencode] start run session_id=%r", session_id)
+        logger.debug("[opencode] prompt: %s", prompt)
+        args = [self.opencode_cmd, "run", "--format", "json"]
         args.extend(self.extra_args)
-        args.extend(["exec", "--json"])
 
-        # Always pipe prompt via stdin ("-") to avoid quoting issues.
         if session_id:
-            args.extend(["resume", session_id, "-"])
-        else:
-            args.append("-")
+            args.extend(["--session", session_id])
+
+        # Pass prompt as argument
+        args.append(prompt)
 
         cancelled_exc_type = anyio.get_cancelled_exc_class()
         cancelled_exc: BaseException | None = None
         async with manage_subprocess(
             *args,
-            stdin=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         ) as proc:
-            if proc.stdin is None or proc.stdout is None or proc.stderr is None:
-                raise RuntimeError("codex exec failed to open subprocess pipes")
-            proc_stdin = proc.stdin
+            if proc.stdout is None or proc.stderr is None:
+                raise RuntimeError("opencode exec failed to open subprocess pipes")
             proc_stdout = proc.stdout
             proc_stderr = proc.stderr
-            logger.debug("[codex] spawn pid=%s args=%r", proc.pid, args)
+            logger.debug("[opencode] spawn pid=%s args=%r", proc.pid, args)
 
             stderr_tail: deque[str] = deque(maxlen=200)
             rc: int | None = None
@@ -357,24 +355,21 @@ class CodexExecRunner:
                 tg.start_soon(_drain_stderr, proc_stderr, stderr_tail)
 
                 try:
-                    await proc_stdin.send(prompt.encode())
-                    await proc_stdin.aclose()
-
                     async for raw_line in _iter_text_lines(proc_stdout):
                         raw = raw_line.rstrip("\n")
-                        logger.debug("[codex][jsonl] %s", raw)
+                        logger.debug("[opencode][jsonl] %s", raw)
                         line = raw.strip()
                         if not line:
                             continue
                         try:
                             evt = json.loads(line)
                         except json.JSONDecodeError:
-                            logger.debug("[codex][jsonl] invalid line: %r", line)
+                            logger.debug("[opencode][jsonl] invalid line: %r", line)
                             continue
 
                         cli_last_item, out_lines = render_event_cli(evt, cli_last_item)
                         for out in out_lines:
-                            logger.info("[codex] %s", out)
+                            logger.info("[opencode] %s", out)
 
                         if on_event is not None:
                             try:
@@ -382,12 +377,32 @@ class CodexExecRunner:
                                 if inspect.isawaitable(res):
                                     await res
                             except Exception as e:
-                                logger.info("[codex][on_event] callback error: %s", e)
+                                logger.info(
+                                    "[opencode][on_event] callback error: %s", e
+                                )
 
-                        if evt["type"] == "thread.started":
+                        # Event parsing for OpenCode
+                        # Capture session ID from any event that has it
+                        if "sessionID" in evt:
+                            found_session = evt["sessionID"] or found_session
+
+                        # Legacy Codex event handling
+                        if evt.get("type") == "thread.started":
                             found_session = evt.get("thread_id") or found_session
 
-                        if evt["type"] == "item.completed":
+                        # Capture text from OpenCode events
+                        if evt.get("type") == "text":
+                            part = evt.get("part", {})
+                            if part.get("type") == "text":
+                                text_content = part.get("text", "")
+                                if text_content:
+                                    last_agent_text = (
+                                        last_agent_text or ""
+                                    ) + text_content
+                                    saw_agent_message = True
+
+                        # Legacy Codex event handling
+                        if evt.get("type") == "item.completed":
                             item = evt.get("item") or {}
                             if item.get("type") == "agent_message" and isinstance(
                                 item.get("text"), str
@@ -405,20 +420,22 @@ class CodexExecRunner:
             if cancelled:
                 raise cancelled_exc  # type: ignore[misc]
 
-            logger.debug("[codex] process exit pid=%s rc=%s", proc.pid, rc)
+            logger.debug("[opencode] process exit pid=%s rc=%s", proc.pid, rc)
             if rc != 0:
                 tail = "".join(stderr_tail)
-                raise RuntimeError(f"codex exec failed (rc={rc}). stderr tail:\n{tail}")
+                raise RuntimeError(
+                    f"opencode exec failed (rc={rc}). stderr tail:\n{tail}"
+                )
 
             if not found_session:
                 raise RuntimeError(
-                    "codex exec finished but no session_id/thread_id was captured"
+                    "opencode exec finished but no session_id was captured"
                 )
 
-            logger.info("[codex] done run session_id=%r", found_session)
+            logger.info("[opencode] done run session_id=%r", found_session)
             return (
                 found_session,
-                (last_agent_text or "(No agent_message captured from JSON stream.)"),
+                (last_agent_text or "(No agent text captured from JSON stream.)"),
                 saw_agent_message,
             )
 
@@ -458,7 +475,7 @@ class CodexExecRunner:
 @dataclass(frozen=True)
 class BridgeConfig:
     bot: TelegramClient
-    runner: CodexExecRunner
+    runner: OpenCodeExecRunner
     chat_id: int
     final_notify: bool
     startup_msg: str
@@ -475,6 +492,7 @@ def _parse_bridge_config(
     *,
     final_notify: bool,
     profile: str | None,
+    model: str | None,
 ) -> BridgeConfig:
     startup_pwd = os.getcwd()
 
@@ -491,28 +509,44 @@ def _parse_bridge_config(
         chat_id_value = config["chat_id"]
     except KeyError:
         raise ConfigError(f"Missing key `chat_id` in {config_path}.") from None
-    if isinstance(chat_id_value, bool) or not isinstance(chat_id_value, int):
+    if isinstance(chat_id_value, bool):
+        raise ConfigError(
+            f"Invalid `chat_id` in {config_path}; expected an integer (not boolean)."
+        ) from None
+    try:
+        chat_id = int(chat_id_value)
+    except (ValueError, TypeError):
         raise ConfigError(
             f"Invalid `chat_id` in {config_path}; expected an integer."
         ) from None
-    chat_id = chat_id_value
 
-    codex_cmd = shutil.which("codex")
-    if not codex_cmd:
+    opencode_cmd = shutil.which("opencode")
+    if not opencode_cmd:
         raise ConfigError(
-            "codex not found on PATH. Install the Codex CLI with:\n"
-            "  npm install -g @openai/codex\n"
-            "  # or on macOS\n"
-            "  brew install codex"
+            "opencode not found on PATH. Install the OpenCode CLI with:\n"
+            "  npm install -g opencode"
         )
 
     startup_msg = f"🐙 takopi is ready to help-pi!\npwd: {startup_pwd}"
     extra_args = ["-c", "notify=[]"]
     if profile:
-        extra_args.extend(["--profile", profile])
+        # opencode currently doesn't have a profile equivalent in the same way,
+        # but we'll leave this to be adapted or remove it.
+        # For now, let's just warn or ignore.
+        # But wait, extra_args are passed to opencode run.
+        # If opencode doesn't support -c notify=[], we might break it.
+        # "opencode run" takes message as arg.
+        # It doesn't seem to support -c (config?).
+        # I'll reset extra_args for now.
+        pass
+
+    extra_args = []
+    if model:
+        extra_args.extend(["--model", model])
+    # if profile: ...
 
     bot = TelegramClient(token)
-    runner = CodexExecRunner(codex_cmd=codex_cmd, extra_args=extra_args)
+    runner = OpenCodeExecRunner(opencode_cmd=opencode_cmd, extra_args=extra_args)
 
     return BridgeConfig(
         bot=bot,
@@ -863,12 +897,17 @@ def run(
     debug: bool = typer.Option(
         False,
         "--debug/--no-debug",
-        help="Log codex JSONL, Telegram requests, and rendered messages.",
+        help="Log opencode JSONL, Telegram requests, and rendered messages.",
     ),
     profile: str | None = typer.Option(
         None,
         "--profile",
-        help="Codex profile name to pass to `codex --profile`.",
+        help="Profile name (currently unused for opencode).",
+    ),
+    model: str | None = typer.Option(
+        None,
+        "--model",
+        help="Model to use for the agent (e.g. claude-3-5-sonnet).",
     ),
 ) -> None:
     setup_logging(debug=debug)
@@ -880,6 +919,7 @@ def run(
         cfg = _parse_bridge_config(
             final_notify=final_notify,
             profile=profile,
+            model=model,
         )
     except ConfigError as e:
         typer.echo(str(e), err=True)

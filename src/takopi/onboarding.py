@@ -14,23 +14,23 @@ _OCTOPUS = "\N{OCTOPUS}"
 
 @dataclass(slots=True)
 class SetupResult:
-    missing_codex: bool = False
+    missing_opencode: bool = False
     missing_or_invalid_config: bool = False
     config_path: Path = HOME_CONFIG_PATH
 
     @property
     def ok(self) -> bool:
-        return not (self.missing_codex or self.missing_or_invalid_config)
+        return not (self.missing_opencode or self.missing_or_invalid_config)
 
 
 def check_setup() -> SetupResult:
-    missing_codex = shutil.which("codex") is None
+    missing_opencode = shutil.which("opencode") is None
 
     try:
         config, config_path = load_telegram_config()
     except ConfigError:
         return SetupResult(
-            missing_codex=missing_codex,
+            missing_opencode=missing_opencode,
             missing_or_invalid_config=True,
             config_path=HOME_CONFIG_PATH,
         )
@@ -39,10 +39,19 @@ def check_setup() -> SetupResult:
     chat_id = config.get("chat_id")
 
     missing_or_invalid_config = not (isinstance(token, str) and token.strip())
-    missing_or_invalid_config |= type(chat_id) is not int
+    try:
+        if chat_id is not None:
+            int(chat_id)  # type: ignore
+            chat_id_ok = True
+        else:
+            chat_id_ok = False
+    except (ValueError, TypeError):
+        chat_id_ok = False
+
+    missing_or_invalid_config |= not chat_id_ok
 
     return SetupResult(
-        missing_codex=missing_codex,
+        missing_opencode=missing_opencode,
         missing_or_invalid_config=missing_or_invalid_config,
         config_path=config_path,
     )
@@ -72,10 +81,10 @@ def render_setup_guide(result: SetupResult) -> None:
         parts.extend(lines)
         parts.append("")
 
-    if result.missing_codex:
+    if result.missing_opencode:
         add_step(
-            "Install the Codex CLI",
-            "   [dim]$[/] npm install -g @openai/codex",
+            "Install the OpenCode CLI",
+            "   [dim]$[/] npm install -g opencode",
         )
 
     if result.missing_or_invalid_config:

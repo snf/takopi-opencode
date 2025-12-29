@@ -1,5 +1,15 @@
 # changelog
 
+## v0.2.0 (2025-12-29)
+
+Migrate from Codex CLI to OpenCode CLI.
+
+### features
+
+- migrated backend from `codex` to `opencode` cli
+- updated config path to `~/.config/takopi/config.toml` and `.takopi/takopi.toml`
+- updated command line options to support `--model` instead of `--profile`
+
 ## v0.1.0 (2025-12-29)
 
 initial release.

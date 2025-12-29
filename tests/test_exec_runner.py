@@ -1,12 +1,12 @@
 import anyio
 import pytest
 
-from takopi.exec_bridge import CodexExecRunner, EventCallback
+from takopi.exec_bridge import OpenCodeExecRunner, EventCallback
 
 
 @pytest.mark.anyio
 async def test_run_serialized_serializes_same_session() -> None:
-    runner = CodexExecRunner(codex_cmd="codex", extra_args=[])
+    runner = OpenCodeExecRunner(opencode_cmd="opencode", extra_args=[])
     gate = anyio.Event()
     in_flight = 0
     max_in_flight = 0
@@ -32,7 +32,7 @@ async def test_run_serialized_serializes_same_session() -> None:
 
 @pytest.mark.anyio
 async def test_run_serialized_allows_parallel_new_sessions() -> None:
-    runner = CodexExecRunner(codex_cmd="codex", extra_args=[])
+    runner = OpenCodeExecRunner(opencode_cmd="opencode", extra_args=[])
     gate = anyio.Event()
     in_flight = 0
     max_in_flight = 0
@@ -60,7 +60,7 @@ async def test_run_serialized_allows_parallel_new_sessions() -> None:
 
 @pytest.mark.anyio
 async def test_new_session_holds_lock_for_resumes() -> None:
-    runner = CodexExecRunner(codex_cmd="codex", extra_args=[])
+    runner = OpenCodeExecRunner(opencode_cmd="opencode", extra_args=[])
     finish = anyio.Event()
     resume_started = anyio.Event()
 
@@ -71,7 +71,9 @@ async def test_new_session_holds_lock_for_resumes() -> None:
     ) -> tuple[str, str, bool]:
         if session_id is None:
             if on_event:
-                await on_event({"type": "thread.started", "thread_id": "sid"})
+                res = on_event({"type": "thread.started", "thread_id": "sid"})
+                if res is not None:
+                    await res
             await finish.wait()
             return ("sid", "ok", True)
         resume_started.set()

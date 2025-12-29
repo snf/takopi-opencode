@@ -35,7 +35,7 @@ The orchestrator module containing:
 |-----------|---------|
 | `main()` / `run()` | CLI entry point via Typer |
 | `BridgeConfig` | Frozen dataclass holding runtime config |
-| `CodexExecRunner` | Spawns `codex exec`, streams JSONL, handles cancellation |
+| `OpenCodeExecRunner` | Spawns `opencode run`, streams JSONL, handles cancellation |
 | `poll_updates()` | Async generator that drains backlog, long-polls updates, filters messages |
 | `_run_main_loop()` | TaskGroup-based main loop that spawns per-message handlers |
 | `handle_message()` | Per-message handler with progress updates |
@@ -70,7 +70,7 @@ class TelegramClient:
 
 ### `exec_render.py` — JSONL Event Rendering
 
-Transforms Codex JSONL events into human-readable text:
+Transforms OpenCode JSONL events into human-readable text:
 
 | Function/Class | Purpose |
 |----------------|---------|
@@ -81,14 +81,15 @@ Transforms Codex JSONL events into human-readable text:
 | `render_markdown()` | Markdown → Telegram text + entities (markdown-it-py + sulguk) |
 
 **Supported event types:**
-- `thread.started`, `turn.started/completed/failed`
-- `item.started/completed` for: `agent_message`, `reasoning`, `command_execution`, `mcp_tool_call`, `web_search`, `file_change`, `error`
+- `step_start`, `step_finish`
+- `text`
+- (Legacy types may be deprecated)
 
 ### `config.py` — Configuration Loading
 
 ```python
 def load_telegram_config() -> tuple[dict, Path]:
-    # Loads ./.codex/takopi.toml, then ~/.codex/takopi.toml
+    # Loads ./.takopi/takopi.toml, then ~/.config/takopi/config.toml
 ```
 
 ### `logging.py` — Secure Logging Setup
@@ -105,7 +106,7 @@ def setup_logging(*, debug: bool):
 
 ```python
 def check_setup() -> SetupResult:
-    # Validates codex CLI on PATH and config file
+    # Validates opencode CLI on PATH and config file
 
 def render_setup_guide(result: SetupResult):
     # Displays rich panel with setup instructions
@@ -126,8 +127,8 @@ handle_message() spawned as task
     ↓
 Send initial progress message (silent)
     ↓
-CodexExecRunner.run_serialized()
-    ├── Spawns: codex exec --json ... -
+OpenCodeExecRunner.run_serialized()
+    ├── Spawns: opencode run --format json ...
     ├── Streams JSONL from stdout
     ├── Calls on_event() for each event
     │       ↓
@@ -145,14 +146,14 @@ Send/edit final message
 
 Same as above, but:
 - `extract_session_id()` finds UUID in message or reply
-- Command becomes: `codex exec --json resume <session_id> -`
+- Command becomes: `opencode run --format json --session <session_id> ...`
 - Per-session lock serializes concurrent resumes
 
 ## Error Handling
 
 | Scenario | Behavior |
 |----------|----------|
-| `codex exec` fails (rc≠0) | Shows stderr tail in error message |
+| `opencode run` fails (rc≠0) | Shows stderr tail in error message |
 | Telegram API error | Logged, edit skipped (progress continues) |
 | Cancellation | Cancel scope triggers terminate; cancellation is detected via `cancelled_caught` |
 | No agent_message | Final shows "error" status |

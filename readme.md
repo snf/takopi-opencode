@@ -1,8 +1,8 @@
 # takopi
 
-🐙 *A little helper from Happy Planet, here to make your Codex sessions happier-pi!*
+🐙 *A little helper from Happy Planet, here to make your OpenCode sessions happier-pi!*
 
-A Telegram bot that bridges messages to [Codex](https://github.com/openai/codex) sessions using non-interactive `codex exec --json`.
+A Telegram bot that bridges messages to [OpenCode](https://opencode.ai) sessions using non-interactive `opencode run --format json`.
 
 ## Features
 
@@ -17,7 +17,7 @@ A Telegram bot that bridges messages to [Codex](https://github.com/openai/codex)
 ### Prerequisites
 
 - [uv](https://github.com/astral-sh/uv) package manager
-- Codex CLI on PATH
+- OpenCode CLI on PATH (`npm install -g opencode`)
 
 ### Installation
 
@@ -37,7 +37,7 @@ uvx takopi
 
 ### Configuration
 
-Create `~/.codex/takopi.toml` (or `.codex/takopi.toml` for a repo-local config):
+Create `~/.config/takopi/config.toml` (or `.takopi/takopi.toml` for a repo-local config):
 
 ```toml
 bot_token = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz"
@@ -51,19 +51,14 @@ chat_id = 123456789
 
 The bridge only accepts messages where the chat ID equals the sender ID and both match `chat_id` (i.e., private chat with that user).
 
-### Codex Profile (Optional)
+### OpenCode Profile (Optional)
 
-Create a Codex profile in `~/.codex/config.toml`:
-
-```toml
-[profiles.takopi]
-model = "gpt-5.2-codex"
-```
+Create a profile in `~/.config/opencode/config.toml` if needed (details vary by OpenCode version).
 
 Then run takopi with:
 
 ```bash
-takopi --profile takopi
+takopi --model claude-3-5-sonnet
 ```
 
 ### Options
@@ -72,7 +67,7 @@ takopi --profile takopi
 |------|---------|-------------|
 | `--final-notify` / `--no-final-notify` | `--final-notify` | Send final response as new message (vs. edit) |
 | `--debug` / `--no-debug` | `--no-debug` | Enable verbose logging |
-| `--profile NAME` | (codex default) | Codex profile name |
+| `--model NAME` | (opencode default) | Model to use for the agent |
 | `--version` |  | Show the version and exit |
 
 ## Usage
@@ -82,7 +77,7 @@ takopi --profile takopi
 Send any message to your bot. The bridge will:
 
 1. Send a silent progress message
-2. Stream events from `codex exec`
+2. Stream events from `opencode run`
 3. Update progress every ~2 seconds
 4. Send final response with session ID
 

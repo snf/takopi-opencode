@@ -83,7 +83,63 @@ def format_event(
 ) -> tuple[int | None, list[str], str | None, str | None]:
     lines: list[str] = []
 
-    match event["type"]:
+    # OpenCode event handling
+    if "type" in event and event["type"] in (
+        "step_start",
+        "text",
+        "step_finish",
+        "tool_use",
+    ):
+        evt_type = event["type"]
+        part = event.get("part", {})
+
+        match evt_type:
+            case "step_start":
+                # snapshot = part.get("snapshot")
+                return (
+                    last_item,
+                    [f"{STATUS_RUNNING} processing step..."],
+                    f"{STATUS_RUNNING} processing step...",
+                    None,
+                )
+            case "text":
+                text = part.get("text", "")
+                if text:
+                    # Return text for CLI logging, but no progress line for Telegram
+                    return last_item, [text], None, None
+                return last_item, [], None, None
+            case "tool_use":
+                tool = part.get("tool", "tool")
+                state = part.get("state", {})
+                input_data = state.get("input", {})
+                command = input_data.get("command")
+
+                desc = tool
+                if tool == "bash" and command:
+                    short_cmd = command.strip()
+                    if command_width and len(short_cmd) > command_width:
+                        short_cmd = short_cmd[:command_width] + "…"
+                    desc += f" `{short_cmd}`"
+
+                return (
+                    last_item,
+                    [f"{STATUS_DONE} {desc}"],
+                    f"{STATUS_DONE} {desc}",
+                    None,
+                )
+            case "step_finish":
+                # usage = part.get("usage")
+                return (
+                    last_item,
+                    [f"{STATUS_DONE} step finished"],
+                    f"{STATUS_DONE} step finished",
+                    None,
+                )
+            case _:
+                return last_item, [], None, None
+
+    # Legacy Codex event handling (kept for compatibility or reference)
+    match event.get("type"):
         case "thread.started":
             return last_item, ["thread started"], None, None
         case "turn.started":
@@ -214,9 +270,21 @@ class ExecProgressRenderer:
         self.resume_session: str | None = None
 
     def note_event(self, event: dict[str, Any]) -> bool:
-        if event["type"] == "thread.started":
-            self.resume_session = event["thread_id"]
+        if event.get("type") == "thread.started":
+            self.resume_session = event.get("thread_id")
             return True
+
+        # OpenCode text events should just return True to proceed, but they won't add lines
+        if event.get("type") == "text":
+            # We don't want to trigger an edit for every text chunk, so return True
+            # but format_event returns None for progress_line, so we won't add to recent_actions.
+            # But wait, note_event returns True/False to signal if an update happened?
+            # _handle_message uses return value to decide whether to check time and edit.
+            # If we return False, it returns.
+            # So we should return True if we want to potentially edit (e.g. if we had accumulated text?)
+            # But here we are just tracking "actions". Text chunks aren't actions.
+            # So we can return False.
+            pass
 
         self.last_item, _, progress_line, progress_prefix = format_event(
             event,
@@ -229,12 +297,18 @@ class ExecProgressRenderer:
 
         # Replace the preceding "running" line for the same item on completion.
         if (
-            event["type"] == "item.completed"
+            event.get("type") == "item.completed"
             and progress_prefix
             and self.recent_actions
         ):
             last = self.recent_actions[-1]
             if last.startswith(progress_prefix + f"{STATUS_RUNNING} "):
+                self.recent_actions.pop()
+
+        # OpenCode step replacement logic
+        if event.get("type") == "step_finish" and self.recent_actions:
+            last = self.recent_actions[-1]
+            if f"{STATUS_RUNNING} processing step..." in last:
                 self.recent_actions.pop()
 
         self.recent_actions.append(progress_line)
