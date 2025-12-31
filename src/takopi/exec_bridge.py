@@ -33,10 +33,12 @@ from .telegram import TelegramClient
 
 
 logger = logging.getLogger(__name__)
-UUID_PATTERN_TEXT = r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b"
-UUID_PATTERN = re.compile(UUID_PATTERN_TEXT, re.IGNORECASE)
+# OpenCode uses ses_XXX format; legacy Codex used UUIDs
+SESSION_ID_PATTERN_TEXT = r"ses_[A-Za-z0-9]+"
+UUID_PATTERN_TEXT = r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+SESSION_ID_PATTERN = re.compile(SESSION_ID_PATTERN_TEXT)
 RESUME_LINE = re.compile(
-    rf"^\s*resume\s*:\s*`?(?P<id>{UUID_PATTERN_TEXT})`?\s*$",
+    rf"^\s*resume\s*:\s*`?(?P<id>{SESSION_ID_PATTERN_TEXT}|{UUID_PATTERN_TEXT})`?\s*$",
     re.IGNORECASE | re.MULTILINE,
 )
 
@@ -143,7 +145,7 @@ def truncate_for_telegram(text: str, limit: int) -> str:
     is_resume_tail = False
     for i in range(len(lines) - 1, -1, -1):
         line = lines[i]
-        if "resume" in line and UUID_PATTERN.search(line):
+        if "resume" in line.lower() and SESSION_ID_PATTERN.search(line):
             tail_lines = lines[i:]
             is_resume_tail = True
             break
