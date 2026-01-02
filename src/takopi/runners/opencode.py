@@ -370,7 +370,7 @@ class OpenCodeRunner(ResumeTokenMixin, JsonlSubprocessRunner):
     def format_resume(self, token: ResumeToken) -> str:
         if token.engine != ENGINE:
             raise RuntimeError(f"resume token is for engine {token.engine!r}")
-        return f"`opencode run --session {token.value}`"
+        return f"`opencode --session {token.value}`"
 
     def command(self) -> str:
         return self.opencode_cmd

@@ -22,8 +22,8 @@ def test_opencode_resume_format_and_extract() -> None:
     runner = OpenCodeRunner(opencode_cmd="opencode")
     token = ResumeToken(engine=ENGINE, value="ses_abc123")
 
-    assert runner.format_resume(token) == "`opencode run --session ses_abc123`"
-    assert runner.extract_resume("`opencode run --session ses_abc123`") == token
+    assert runner.format_resume(token) == "`opencode --session ses_abc123`"
+    assert runner.extract_resume("`opencode --session ses_abc123`") == token
     assert runner.extract_resume("opencode run -s ses_other") == ResumeToken(
         engine=ENGINE, value="ses_other"
     )
