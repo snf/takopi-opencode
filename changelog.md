@@ -5,13 +5,15 @@
 ### changes
 
 - add auto-router runner selection with configurable default engine
+- make auto-router the default entrypoint; subcommands or `/{engine}` prefixes override for new threads
 - add `/cancel` + `/{engine}` command menu sync on startup
 - show engine name in progress and final message headers
-- filter command log lines from final output for cleaner answers
+- omit progress/action log lines from final output for cleaner answers
 
 ### fixes
 
 - improve codex exec error rendering with stderr extraction
+- preserve markdown formatting and resume footer when trimming long responses
 
 ## v0.3.0 (2026-01-01)
 
