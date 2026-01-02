@@ -29,6 +29,8 @@ Resume line format: `` `opencode --session ses_XXX` ``
 
 The runner recognizes both `--session` and `-s` flags (with or without `run`).
 
+Note: The resume line is meant to reopen the interactive TUI session. `opencode run` is headless and requires a message or command, so it is not the canonical resume command.
+
 ## JSON Event Format
 
 OpenCode outputs JSON events with the following types:

@@ -43,6 +43,8 @@ The canonical ResumeLine embedded in chat MUST be the engine’s CLI resume comm
 - `claude --resume <id>`
 - `pi --session <path>`
 
+ResumeLine MUST resume the interactive session when the engine offers both interactive and headless modes. It MUST NOT point to a headless/batch command that requires a new prompt (e.g., a `run` subcommand that errors without a message).
+
 Takopi MUST treat the runner as authoritative for:
 
 - formatting a ResumeToken into a ResumeLine
