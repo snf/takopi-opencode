@@ -398,6 +398,7 @@ class OpenCodeRunner(ResumeTokenMixin, JsonlSubprocessRunner):
 
     opencode_cmd: str = "opencode"
     model: str | None = None
+    available_models: tuple[str, ...] = field(default_factory=tuple)
     session_title: str = "opencode"
     stderr_tail_lines: int = STDERR_TAIL_LINES
     logger: logging.Logger = logger
@@ -563,11 +564,20 @@ def build_runner(config: EngineConfig, config_path: Path) -> Runner:
             f"Invalid `opencode.model` in {config_path}; expected a string."
         )
 
+    models = config.get("models")
+    if models is not None and (
+        not isinstance(models, list) or not all(isinstance(m, str) for m in models)
+    ):
+        raise ConfigError(
+            f"Invalid `opencode.models` in {config_path}; expected a list of strings."
+        )
+
     title = str(model) if model is not None else "opencode"
 
     return OpenCodeRunner(
         opencode_cmd=opencode_cmd,
         model=model,
+        available_models=tuple(models) if models else (),
         session_title=title,
     )
 

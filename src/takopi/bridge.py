@@ -45,6 +45,14 @@ def _is_cancel_command(text: str) -> bool:
     return command == "/cancel" or command.startswith("/cancel@")
 
 
+def _is_model_command(text: str) -> bool:
+    stripped = text.strip()
+    if not stripped:
+        return False
+    command = stripped.split(maxsplit=1)[0]
+    return command == "/model" or command.startswith("/model@")
+
+
 def _strip_engine_command(
     text: str, *, engine_ids: tuple[EngineId, ...]
 ) -> tuple[str, EngineId | None]:
@@ -723,6 +731,91 @@ async def _handle_cancel(
     running_task.cancel_requested.set()
 
 
+async def _handle_model_command(
+    cfg: BridgeConfig,
+    msg: dict[str, Any],
+) -> None:
+    chat_id = msg["chat"]["id"]
+    user_msg_id = msg["message_id"]
+    text = msg.get("text", "")
+
+    parts = text.strip().split(maxsplit=1)
+    args = parts[1] if len(parts) > 1 else ""
+    target_model = args.strip()
+
+    # Find the target runner (OpenCode)
+    target_entry = None
+    for entry in cfg.router.entries:
+        if entry.engine == "opencode":
+            target_entry = entry
+            break
+
+    if target_entry is None:
+        await cfg.bot.send_message(
+            chat_id=chat_id,
+            text="Opencode engine not found.",
+            reply_to_message_id=user_msg_id,
+        )
+        return
+
+    runner = target_entry.runner
+
+    # Duck typing check
+    if not hasattr(runner, "model") or not hasattr(runner, "available_models"):
+        await cfg.bot.send_message(
+            chat_id=chat_id,
+            text="The opencode runner does not support model switching.",
+            reply_to_message_id=user_msg_id,
+        )
+        return
+
+    available = getattr(runner, "available_models", ())
+    current = getattr(runner, "model", None)
+
+    if not target_model:
+        # List models
+        if not available:
+            msg_text = f"Current model: `{current}`\nNo alternative models configured."
+        else:
+            list_text = "\n".join(f"- `{m}`" for m in available)
+            msg_text = (
+                f"Current model: `{current}`\n"
+                f"Available models:\n{list_text}\n\n"
+                "Use `/model <name>` to switch."
+            )
+
+        await cfg.bot.send_message(
+            chat_id=chat_id,
+            text=msg_text,
+            reply_to_message_id=user_msg_id,
+            parse_mode="Markdown",
+        )
+        return
+
+    # Validate model
+    if available and target_model not in available:
+        list_text = "\n".join(f"- `{m}`" for m in available)
+        await cfg.bot.send_message(
+            chat_id=chat_id,
+            text=f"Invalid model `{target_model}`.\nAvailable models:\n{list_text}",
+            reply_to_message_id=user_msg_id,
+            parse_mode="Markdown",
+        )
+        return
+
+    # Update model
+    runner.model = target_model  # type: ignore
+    if hasattr(runner, "session_title"):
+        runner.session_title = target_model  # type: ignore
+
+    await cfg.bot.send_message(
+        chat_id=chat_id,
+        text=f"Switched to model `{target_model}`.",
+        reply_to_message_id=user_msg_id,
+        parse_mode="Markdown",
+    )
+
+
 async def _wait_for_resume(running_task: RunningTask) -> ResumeToken | None:
     if running_task.resume is not None:
         return running_task.resume
@@ -869,6 +962,10 @@ async def run_main_loop(
 
                 if _is_cancel_command(text):
                     tg.start_soon(_handle_cancel, cfg, msg, running_tasks)
+                    continue
+
+                if _is_model_command(text):
+                    tg.start_soon(_handle_model_command, cfg, msg)
                     continue
 
                 text, engine_override = _strip_engine_command(
