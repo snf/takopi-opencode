@@ -14,6 +14,16 @@ OpenCode: {"type":"step_start","sessionID":"ses_XXX",...}
 Takopi:   StartedEvent(engine="opencode", resume=ResumeToken(engine="opencode", value="ses_XXX"))
 ```
 
+### Turn Events (Progress Indicators)
+
+Subsequent `step_start` events emit turn events to signal that OpenCode is still actively working.
+These are filtered from display but trigger timer updates in the UI.
+
+```
+OpenCode: {"type":"step_start","sessionID":"ses_XXX",...}  (2nd, 3rd, etc.)
+Takopi:   ActionEvent(engine="opencode", action=Action(kind="turn"), phase="started")
+```
+
 ### ActionEvent
 
 Tool usage is translated to action events. Note: `opencode run --format json` currently only emits `tool_use` events when the tool finishes (`status == "completed"`). Pending/running tool states exist in the schema but are not emitted by the CLI JSON stream.

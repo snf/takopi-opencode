@@ -56,6 +56,7 @@ class OpenCodeStreamState:
     saw_step_finish: bool = False
     total_cost: float = 0.0
     total_tokens: dict[str, int] = field(default_factory=dict)
+    turn_index: int = 0
 
 
 def _action_event(
@@ -207,6 +208,9 @@ def translate_opencode_event(
             state.session_id = session_id
 
     if etype == "step_start":
+        action_id = f"turn_{state.turn_index}"
+        state.turn_index += 1
+
         if not state.emitted_started and state.session_id:
             state.emitted_started = True
             return [
@@ -216,7 +220,18 @@ def translate_opencode_event(
                     title=title,
                 )
             ]
-        return []
+
+        return [
+            _action_event(
+                phase="started",
+                action=Action(
+                    id=action_id,
+                    kind="turn",
+                    title="turn started",
+                    detail={},
+                ),
+            )
+        ]
 
     if etype == "tool_use":
         part = event.get("part") or {}

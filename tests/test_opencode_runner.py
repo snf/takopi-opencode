@@ -46,9 +46,12 @@ def test_translate_success_fixture() -> None:
     assert started.resume.engine == ENGINE
 
     action_events = [evt for evt in events if isinstance(evt, ActionEvent)]
-    assert len(action_events) == 1
+    non_turn_actions = [evt for evt in action_events if evt.action.kind != "turn"]
+    turn_actions = [evt for evt in action_events if evt.action.kind == "turn"]
+    assert len(non_turn_actions) == 1
+    assert len(turn_actions) == 1
 
-    completed_actions = [evt for evt in action_events if evt.phase == "completed"]
+    completed_actions = [evt for evt in non_turn_actions if evt.phase == "completed"]
     assert len(completed_actions) == 1
     assert completed_actions[0].action.kind == "command"
     assert completed_actions[0].ok is True
